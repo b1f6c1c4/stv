@@ -1,0 +1,67 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.35.2.
+--
+-- see: https://github.com/sol/hpack
+
+name:           stv
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/b1f6c1c4/stv#readme>
+homepage:       https://github.com/b1f6c1c4/stv#readme
+bug-reports:    https://github.com/b1f6c1c4/stv/issues
+author:         b1f6c1c4
+maintainer:     b1f6c1c4@gmail.com
+copyright:      GPLv3
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/b1f6c1c4/stv
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_stv
+  autogen-modules:
+      Paths_stv
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5
+  default-language: Haskell2010
+
+executable stv-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_stv
+  autogen-modules:
+      Paths_stv
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , stv
+  default-language: Haskell2010
+
+test-suite stv-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_stv
+  autogen-modules:
+      Paths_stv
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , stv
+  default-language: Haskell2010
