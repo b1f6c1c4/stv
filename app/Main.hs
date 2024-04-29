@@ -13,7 +13,7 @@ data STV a = STV { ncandidates :: Int
                  , elected :: [[a]]
                  , eliminated :: [[a]]
                  , roundNumber :: Int
-                 }
+                 } deriving (Show)
 
 stvRound :: (Show a, Ord a) => ([a] -> IO [a]) -> Integer -> STV a -> IO (STV a)
 stvRound selector quota (STV nc votes elected eliminated rnd) = do
@@ -21,14 +21,15 @@ stvRound selector quota (STV nc votes elected eliminated rnd) = do
     let vcs = countVotes votes
     let elc = filter ((>= toRational quota) . count) vcs
     let worst = count (last vcs)
-    let ex = candidate <$> filter ((== worst) . count) vcs
+    let exc = filter ((== worst) . count) vcs
+    let ex = candidate <$> exc
     if not . null $ elc then do
         putStrLn $ show (length elc) ++ " candidate(s) elected:"
-        mapM_ (\vc -> putStrLn $ show (candidate vc) ++ " at " ++ show (count vc)) elc
+        mapM_ print elc
         let el = candidate <$> elc
         return (STV (nc - length elc) (elect quota vcs votes) (el : elected) eliminated (rnd + 1))
     else if length ex == 1 then do
-        putStrLn $ show (head ex) ++ " eliminated at " ++ show worst
+        putStrLn $ "Eliminated: " ++ show (head exc)
         return (STV (nc - 1) (eliminate ex votes) elected (ex : eliminated) (rnd + 1))
     else do
         putStrLn $ show (length ex) ++ " candidates on tier for elimination at " ++ show worst ++ ":"
@@ -40,13 +41,14 @@ stvRound selector quota (STV nc votes elected eliminated rnd) = do
 
 rounds :: (Show a, Ord a) => ([a] -> IO [a]) -> Integer -> Int -> STV a -> IO (STV a)
 rounds selector quota npos stv = do
-    if length (elected stv) > npos then do
+    let elc = sum . map length . elected $ stv
+    if elc > npos then do
         putStrLn "Internal Error: too many candidates elected!"
         return stv
-    else if length (elected stv) == npos then do
+    else if elc == npos then do
         putStrLn "Election completed."
         return stv
-    else if length (elected stv) + (ncandidates stv) == npos then do
+    else if elc + (ncandidates stv) == npos then do
         putStrLn "Election assumed to complete."
         let el = S.toList . S.fromList . concat . map (NE.toList . choices) . votes $ stv
         return (STV 0 [] (el : elected stv) (eliminated stv) (roundNumber stv))
@@ -84,7 +86,7 @@ main = do
     let quota = toInteger $ nvotes `div` (npos + 1) + 1
     putStrLn $ show nvotes ++ " votes, " ++ show (ncandidates stv) ++ " candidates, " ++ show npos ++ " positions, Droop quota = " ++ show quota
     final <- rounds eliminationSelector quota npos stv
-    putStrLn "Candidates Elected: (from best to good)"
+    putStrLn "Candidates Elected: (from best to better)"
     mapM_ print . reverse . elected $ final
-    putStrLn "Candidates Eliminated: (from bad to worst)"
+    putStrLn "Candidates Eliminated: (from worse to worst)"
     mapM_ print . eliminated $ final

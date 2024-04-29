@@ -14,16 +14,23 @@ import Data.List.Extra (sumOn')
 import qualified Data.Map as M
 import qualified Data.List.NonEmpty as NE
 import Data.Ratio
+import Numeric
 
 data Vote a = Vote {weight :: Rational, choices :: NE.NonEmpty a}
 
+instance (Show a) => Show (Vote a) where
+    show (Vote w cs) = showFFloat (Just 4) (fromRational w :: Double) $ " " ++ show cs
+
 data VoteCount a = VoteCount {candidate :: a, count :: Rational}
+
+instance (Show a) => Show (VoteCount a) where
+    show (VoteCount c cnt) = show c ++ " " ++ showFFloat (Just 4) (fromRational cnt :: Double) ""
 
 fromChoices :: [a] -> Vote a
 fromChoices = Vote (1 % 1) . NE.fromList
 
 countVotes :: (Ord a) => [Vote a] -> [VoteCount a]
-countVotes = map (uncurry VoteCount) . sortOn snd . M.toList . M.fromListWith (+) . map f
+countVotes = reverse . map (uncurry VoteCount) . sortOn snd . M.toList . M.fromListWith (+) . map f
     where f v = (NE.head . choices $ v, weight v)
 
 elect :: (Ord a) => Integer -> [VoteCount a] -> [Vote a] -> [Vote a]
