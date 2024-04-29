@@ -25,7 +25,8 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Core
+      Round
   other-modules:
       Paths_stv
   autogen-modules:

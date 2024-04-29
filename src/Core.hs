@@ -1,9 +1,8 @@
 {-# LANGUAGE TupleSections #-}
 
-module Lib
+module Core
     ( Vote (..)
     , VoteCount (..)
-    , fromChoices
     , countVotes
     , splitTier
     , elect
@@ -27,9 +26,6 @@ data VoteCount a = VoteCount {candidate :: a, count :: Rational}
 
 instance (Show a) => Show (VoteCount a) where
     show (VoteCount c cnt) = show c ++ " " ++ showFFloat (Just 4) (fromRational cnt :: Double) ""
-
-fromChoices :: [a] -> Vote a
-fromChoices = Vote (1 % 1) . NE.fromList
 
 countVotes :: (Ord a) => S.Set a -> [Vote a] -> [VoteCount a]
 countVotes candidates = reverse . map (uncurry VoteCount) . sortOn snd . M.toList . foldl (flip . uncurry $ M.insertWith (+)) x . map f
