@@ -7,6 +7,7 @@ import qualified Data.List.NonEmpty as NE
 import System.IO (Handle, hGetContents, IOMode (ReadMode), withFile)
 import Data.List.Split (wordsBy, split, whenElt)
 import System.Environment (getArgs)
+import Numeric (showFFloat)
 
 data STV a = STV { ncandidates :: Int
                  , votes :: [Vote a]
@@ -15,21 +16,25 @@ data STV a = STV { ncandidates :: Int
                  , roundNumber :: Int
                  } deriving (Show)
 
-stvRound :: (Show a, Ord a) => ([a] -> IO [a]) -> Integer -> STV a -> IO (STV a)
-stvRound selector quota (STV nc votes elected eliminated rnd) = do
-    putStrLn $ "Round " ++ show rnd ++ ": " ++ show nc ++ " candidates, " ++ show (sumOn' weight votes) ++ " valid votes"
+stvRound :: (Show a, Ord a) => ([a] -> IO [a]) -> Integer -> Int -> STV a -> IO (STV a)
+stvRound selector quota npos (STV nc votes elected eliminated rnd) = do
+    let tvv = (fromRational $ sumOn' weight votes) :: Double
+    putStrLn $ "[[Round " ++ show rnd ++ "]]: " ++ show nc ++ " candidates, " ++ showFFloat (Just 4) tvv " valid votes"
     let vcs = countVotes votes
+    print vcs
     let elc = filter ((>= toRational quota) . count) vcs
     let worst = count (last vcs)
     let exc = filter ((== worst) . count) vcs
     let ex = candidate <$> exc
+    let elcnt = length . concat . concat $ elected
     if not . null $ elc then do
         putStrLn $ show (length elc) ++ " candidate(s) elected:"
         mapM_ print elc
         return (STV (nc - length elc) (elect quota vcs votes) (splitTier elc Nothing : elected) eliminated (rnd + 1))
-    else if length ex == 1 then do
-        putStrLn $ "Eliminated: " ++ show (head exc)
-        return (STV (nc - 1) (eliminate ex votes) elected (ex : eliminated) (rnd + 1))
+    else if length ex == 1 || npos - elcnt <= nc - length ex then do
+        putStrLn $ show (length exc) ++ " candidates eliminated:"
+        mapM_ print exc
+        return (STV (nc - length exc) (eliminate ex votes) elected (ex : eliminated) (rnd + 1))
     else do
         putStrLn $ show (length ex) ++ " candidates on tier for elimination at " ++ show worst ++ ":"
         mapM_ print ex
@@ -40,19 +45,19 @@ stvRound selector quota (STV nc votes elected eliminated rnd) = do
 
 rounds :: (Show a, Ord a) => ([a] -> IO [a]) -> Integer -> Int -> STV a -> IO (STV a)
 rounds selector quota npos stv = do
-    let elc = length . concat . concat . elected $ stv
-    if elc > npos then do
+    let elcnt = length . concat . concat . elected $ stv
+    if elcnt > npos then do
         putStrLn "Internal Error: too many candidates elected!"
         return stv
-    else if elc == npos then do
+    else if elcnt == npos then do
         putStrLn "Election completed."
         return stv
-    else if elc + ncandidates stv == npos then do
+    else if elcnt + ncandidates stv == npos then do
         putStrLn "Election assumed to complete."
         let el = S.toList . S.fromList . concatMap (NE.toList . choices) . votes $ stv
         return (STV 0 [] ([el] : elected stv) (eliminated stv) (roundNumber stv))
     else do
-        rounds selector quota npos =<< stvRound selector quota stv
+        rounds selector quota npos =<< stvRound selector quota npos stv
 
 parseLine :: String -> [String]
 parseLine = cleanUp . wordsBy (`elem` ", ")
