@@ -5,6 +5,7 @@ module Lib
     , VoteCount (..)
     , fromChoices
     , countVotes
+    , splitTier
     , elect
     , eliminate
     ) where
@@ -32,6 +33,14 @@ fromChoices = Vote (1 % 1) . NE.fromList
 countVotes :: (Ord a) => [Vote a] -> [VoteCount a]
 countVotes = reverse . map (uncurry VoteCount) . sortOn snd . M.toList . M.fromListWith (+) . map f
     where f v = (NE.head . choices $ v, weight v)
+
+splitTier :: [VoteCount a] -> Maybe Rational -> [[a]]
+splitTier (x:xs) Nothing = let y:ys = splitTier xs (Just (count x)) in (candidate x:y):ys
+splitTier (x:xs) (Just c)
+    | count x == c = let y:ys = splitTier xs (Just c) in (candidate x:y):ys
+    | otherwise = [] : splitTier (x:xs) Nothing
+splitTier [] Nothing = []
+splitTier [] _ = [[]]
 
 elect :: (Ord a) => Integer -> [VoteCount a] -> [Vote a] -> [Vote a]
 elect quota vcs votes = transferImpl (M.fromList . map vc2cm $ elected) votes

@@ -5,12 +5,12 @@ import Data.List.Extra (sumOn')
 import qualified Data.Set as S
 import qualified Data.List.NonEmpty as NE
 import System.IO (Handle, hGetContents, IOMode (ReadMode), withFile)
-import Data.List.Split (wordsBy)
+import Data.List.Split (wordsBy, split, whenElt)
 import System.Environment (getArgs)
 
 data STV a = STV { ncandidates :: Int
                  , votes :: [Vote a]
-                 , elected :: [[a]]
+                 , elected :: [[[a]]]
                  , eliminated :: [[a]]
                  , roundNumber :: Int
                  } deriving (Show)
@@ -26,8 +26,7 @@ stvRound selector quota (STV nc votes elected eliminated rnd) = do
     if not . null $ elc then do
         putStrLn $ show (length elc) ++ " candidate(s) elected:"
         mapM_ print elc
-        let el = candidate <$> elc
-        return (STV (nc - length elc) (elect quota vcs votes) (el : elected) eliminated (rnd + 1))
+        return (STV (nc - length elc) (elect quota vcs votes) (splitTier elc Nothing : elected) eliminated (rnd + 1))
     else if length ex == 1 then do
         putStrLn $ "Eliminated: " ++ show (head exc)
         return (STV (nc - 1) (eliminate ex votes) elected (ex : eliminated) (rnd + 1))
@@ -41,17 +40,17 @@ stvRound selector quota (STV nc votes elected eliminated rnd) = do
 
 rounds :: (Show a, Ord a) => ([a] -> IO [a]) -> Integer -> Int -> STV a -> IO (STV a)
 rounds selector quota npos stv = do
-    let elc = sum . map length . elected $ stv
+    let elc = length . concat . concat . elected $ stv
     if elc > npos then do
         putStrLn "Internal Error: too many candidates elected!"
         return stv
     else if elc == npos then do
         putStrLn "Election completed."
         return stv
-    else if elc + (ncandidates stv) == npos then do
+    else if elc + ncandidates stv == npos then do
         putStrLn "Election assumed to complete."
-        let el = S.toList . S.fromList . concat . map (NE.toList . choices) . votes $ stv
-        return (STV 0 [] (el : elected stv) (eliminated stv) (roundNumber stv))
+        let el = S.toList . S.fromList . concatMap (NE.toList . choices) . votes $ stv
+        return (STV 0 [] ([el] : elected stv) (eliminated stv) (roundNumber stv))
     else do
         rounds selector quota npos =<< stvRound selector quota stv
 
