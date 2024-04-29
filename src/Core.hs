@@ -20,7 +20,7 @@ import Numeric
 data Vote a = Vote {weight :: Rational, choices :: NE.NonEmpty a}
 
 instance (Show a) => Show (Vote a) where
-    show (Vote w cs) = showFFloat (Just 4) (fromRational w :: Double) $ " " ++ show cs
+    show (Vote w cs) = showFFloat (Just 4) (fromRational w :: Double) $ " " ++ show (NE.toList cs)
 
 data VoteCount a = VoteCount {candidate :: a, count :: Rational}
 

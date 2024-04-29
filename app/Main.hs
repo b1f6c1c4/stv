@@ -1,25 +1,32 @@
 module Main (main) where
 
 import Round
-import System.Environment (getArgs)
+import System.Environment (getArgs, getProgName)
 import System.IO (hGetContents, IOMode (ReadMode), withFile)
 import Data.List.Split (wordsBy)
 import Numeric (showFFloat)
 import Data.List (intercalate)
 
 parseLine :: String -> [String]
-parseLine = cleanUp . wordsBy (`elem` ", ")
+parseLine = cleanUp . wordsBy (`elem` ", \t")
     where cleanUp (x:xs) = x : cleanUp (filter (/= x) xs)
           cleanUp [] = []
 
 main :: IO ()
 main = do
     args <- getArgs
-    stv <- withFile (head args) ReadMode (\h -> do
-        l <- filter (not . null) . map parseLine . lines <$> hGetContents h
-        seq (length l) (return ()) -- dark magic, don't touch
-        return (fromChoices l))
-    mapM_ (eval stv True False) [1 .. ncandidates stv]
+    if null args
+       then do
+           nm <- getProgName
+           fail $ "Usage: " ++ nm ++ " <csv-file> [<npos>]"
+       else do
+           stv <- withFile (head args) ReadMode (\h -> do
+               l <- filter (not . null) . map parseLine . lines <$> hGetContents h
+               seq (length l) (return ()) -- dark magic, don't touch
+               return (fromChoices l))
+           if length args >= 2
+              then let np = read (args !! 1) in eval stv False True np
+              else mapM_ (eval stv True False) [1 .. ncandidates stv]
 
 eval :: STV String -> Bool -> Bool -> Int -> IO ()
 eval stv quiet verbose npos = do
