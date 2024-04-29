@@ -12,6 +12,7 @@ module Lib
 
 import Data.List (sortOn)
 import Data.List.Extra (sumOn')
+import qualified Data.Set as S
 import qualified Data.Map as M
 import qualified Data.List.NonEmpty as NE
 import Data.Ratio
@@ -30,9 +31,10 @@ instance (Show a) => Show (VoteCount a) where
 fromChoices :: [a] -> Vote a
 fromChoices = Vote (1 % 1) . NE.fromList
 
-countVotes :: (Ord a) => [Vote a] -> [VoteCount a]
-countVotes = reverse . map (uncurry VoteCount) . sortOn snd . M.toList . M.fromListWith (+) . map f
+countVotes :: (Ord a) => S.Set a -> [Vote a] -> [VoteCount a]
+countVotes candidates = reverse . map (uncurry VoteCount) . sortOn snd . M.toList . foldl (flip . uncurry $ M.insertWith (+)) x . map f
     where f v = (NE.head . choices $ v, weight v)
+          x = M.fromSet (const 0) candidates
 
 splitTier :: [VoteCount a] -> Maybe Rational -> [[a]]
 splitTier (x:xs) Nothing = let y:ys = splitTier xs (Just (count x)) in (candidate x:y):ys

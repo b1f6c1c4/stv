@@ -5,11 +5,11 @@ import Data.List.Extra (sumOn')
 import qualified Data.Set as S
 import qualified Data.List.NonEmpty as NE
 import System.IO (Handle, hGetContents, IOMode (ReadMode), withFile)
-import Data.List.Split (wordsBy, split, whenElt)
+import Data.List.Split (wordsBy)
 import System.Environment (getArgs)
 import Numeric (showFFloat)
 
-data STV a = STV { ncandidates :: Int
+data STV a = STV { candidates :: S.Set a
                  , votes :: [Vote a]
                  , elected :: [[[a]]]
                  , eliminated :: [[a]]
@@ -17,10 +17,11 @@ data STV a = STV { ncandidates :: Int
                  } deriving (Show)
 
 stvRound :: (Show a, Ord a) => ([a] -> IO [a]) -> Integer -> Int -> STV a -> IO (STV a)
-stvRound selector quota npos (STV nc votes elected eliminated rnd) = do
+stvRound selector quota npos (STV candidates votes elected eliminated rnd) = do
     let tvv = (fromRational $ sumOn' weight votes) :: Double
-    putStrLn $ "[[Round " ++ show rnd ++ "]]: " ++ show nc ++ " candidates, " ++ showFFloat (Just 4) tvv " valid votes"
-    let vcs = countVotes votes
+    putStrLn $ "[[Round " ++ show rnd ++ "]]: " ++ show (S.size candidates) ++ " candidates, " ++ showFFloat (Just 4) tvv " valid votes"
+    let vcs = countVotes candidates votes
+    print candidates
     print vcs
     let elc = filter ((>= toRational quota) . count) vcs
     let worst = count (last vcs)
@@ -30,18 +31,19 @@ stvRound selector quota npos (STV nc votes elected eliminated rnd) = do
     if not . null $ elc then do
         putStrLn $ show (length elc) ++ " candidate(s) elected:"
         mapM_ print elc
-        return (STV (nc - length elc) (elect quota vcs votes) (splitTier elc Nothing : elected) eliminated (rnd + 1))
-    else if length ex == 1 || npos - elcnt <= nc - length ex then do
+        let el = candidate <$> elc
+        return (STV (candidates S.\\ S.fromList el) (elect quota vcs votes) (splitTier elc Nothing : elected) eliminated (rnd + 1))
+    else if length ex == 1 || npos - elcnt <= S.size candidates - length ex then do
         putStrLn $ show (length exc) ++ " candidates eliminated:"
         mapM_ print exc
-        return (STV (nc - length exc) (eliminate ex votes) elected (ex : eliminated) (rnd + 1))
+        return (STV (candidates S.\\ S.fromList ex) (eliminate ex votes) elected (ex : eliminated) (rnd + 1))
     else do
         putStrLn $ show (length ex) ++ " candidates on tier for elimination at " ++ show worst ++ ":"
         mapM_ print ex
         exs <- selector ex
         putStrLn $ show (length exs) ++ " candidate(s) chosed:"
         mapM_ print exs
-        return (STV (nc - length exs) (eliminate exs votes) elected (exs : eliminated) (rnd + 1))
+        return (STV (candidates S.\\ S.fromList exs) (eliminate exs votes) elected (exs : eliminated) (rnd + 1))
 
 rounds :: (Show a, Ord a) => ([a] -> IO [a]) -> Integer -> Int -> STV a -> IO (STV a)
 rounds selector quota npos stv = do
@@ -52,10 +54,10 @@ rounds selector quota npos stv = do
     else if elcnt == npos then do
         putStrLn "Election completed."
         return stv
-    else if elcnt + ncandidates stv == npos then do
+    else if elcnt + S.size (candidates stv) == npos then do
         putStrLn "Election assumed to complete."
         let el = S.toList . S.fromList . concatMap (NE.toList . choices) . votes $ stv
-        return (STV 0 [] ([el] : elected stv) (eliminated stv) (roundNumber stv))
+        return (STV S.empty [] ([el] : elected stv) (eliminated stv) (roundNumber stv))
     else do
         rounds selector quota npos =<< stvRound selector quota npos stv
 
@@ -68,8 +70,7 @@ fromFile :: Handle -> IO (STV String)
 fromFile h = do
     l <- filter (not . null) . map parseLine . lines <$> hGetContents h
     seq (length l) (return ()) -- dark magic, don't touch
-    let nc = S.size . S.fromList . concat $ l
-    return (STV nc (map fromChoices l) [] [] 0)
+    return (STV (S.fromList . concat $ l) (map fromChoices l) [] [] 0)
 
 eliminationSelector :: [String] -> IO [String]
 eliminationSelector choices = do
@@ -88,7 +89,7 @@ main = do
     let npos = read (args !! 1) :: Int
     let nvotes = length (votes stv)
     let quota = toInteger $ nvotes `div` (npos + 1) + 1
-    putStrLn $ show nvotes ++ " votes, " ++ show (ncandidates stv) ++ " candidates, " ++ show npos ++ " positions, Droop quota = " ++ show quota
+    putStrLn $ show nvotes ++ " votes, " ++ show (S.size . candidates $ stv) ++ " candidates, " ++ show npos ++ " positions, Droop quota = " ++ show quota
     final <- rounds eliminationSelector quota npos stv
     putStrLn "Candidates Elected: (from best to better)"
     mapM_ print . reverse . elected $ final
